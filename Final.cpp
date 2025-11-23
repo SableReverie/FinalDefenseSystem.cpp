@@ -9,73 +9,16 @@ using namespace std;
 
 // ==================== CONSTANTS ====================
 const int NODE_COUNT = 3;
-
 const int STARTING_ENERGY = 10;
-
 const int STARTING_HP = 20;
-
 const int ENERGY_PER_ROUND = 3;
-
 const int MAX_ROUNDS = 20;
 
-// ==================== COLOR FUNCTIONS ====================
-void setColor(int color) 
-{
-    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
-}
-
-void resetColor() 
-{
-    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 7);
-}
-
-void printColored(const string& text, int color) 
-{
-    setColor(color);
-    cout << text;
-    resetColor();
-}
-
-// ==================== SOUND FUNCTIONS ====================
-void soundSuccess() 
-{ 
-    Beep(1200, 120); 
-}
-
-void soundError() 
-{ 
-    Beep(300, 250); 
-}
-
-void soundMove() 
-{ 
-    Beep(800, 80); 
-}
-
-void soundAttack() 
-{ 
-    Beep(600, 150); 
-}
-
-void soundVictory() 
-{ 
-    Beep(1000, 300); 
-    Beep(1200, 300); 
-    Beep(1500, 500); 
-}
-
-// ==================== INPUT SAFETY ====================
-void clearInput() 
-{
-    cin.clear();
-    cin.ignore(numeric_limits<streamsize>::max(), '\n');
-}
-
-// ==================== GAME STRUCTURES ====================
-struct Quiz 
-{
+// ==================== STRUCT ====================
+struct Quiz {
     string question;
     int answer;
+    vector<int> options;  // possible choices
 };
 
 struct SkillCooldown 
@@ -189,32 +132,77 @@ struct GameState
     }
 };
 
+// ==================== COLOR FUNCTIONS ====================
+void setColor(int color) 
+{
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
+}
+
+void resetColor() 
+{
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 7);
+}
+
+void printColored(const string& text, int color) 
+{
+    setColor(color);
+    cout << text;
+    resetColor();
+}
+
+// ==================== SOUND FUNCTIONS ====================
+void soundSuccess() 
+{ 
+    Beep(1200, 120); 
+}
+
+void soundError() 
+{ 
+    Beep(300, 250); 
+}
+
+void soundMove() 
+{ 
+    Beep(800, 80); 
+}
+
+void soundAttack() 
+{ 
+    Beep(600, 150); 
+}
+
+void soundVictory() 
+{ 
+    Beep(1000, 300); 
+    Beep(1200, 300); 
+    Beep(1500, 500); 
+}
+
+// ==================== INPUT SAFETY ====================
+void clearInput() 
+{
+    cin.clear();
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+}
+
 // ==================== QUIZ DATA ====================
 vector<Quiz> createQuizzes() 
 {
     return {
-        {"1 AND 0 =", 0},
-        {"1 AND 1 =", 1},
-        {"0 OR 1 =", 1},
-        {"0 OR 0 =", 0},
-        {"1 XOR 1 =", 0},
-        {"1 XOR 0 =", 1},
-        {"0 XOR 0 =", 0},
-        {"1 AND 0 OR 1 =", 1},
-        {"0 XOR 1 AND 1 =", 1},
-        {"1 OR 1 XOR 0 =", 0}
+        {"1 AND 0 =", 0, {0, 1}},
+        {"1 AND 1 =", 1, {0, 1}},
+        {"0 OR 1 =", 1, {0, 1}},
+        {"NOT 0 =", 1, {0, 1}}
     };
 }
 
 vector<Quiz> createSkillQuizzes() 
 {
     return {
-        {"0 OR 1 =", 1},
-        {"1 AND 1 =", 1},
-        {"1 XOR 0 =", 1},
-        {"0 XOR 0 =", 0},
-        {"1 AND 0 =", 0},
-        {"1 OR 0 =", 1}
+        {"1 OR 0 =", 1, {0, 1}},
+        {"0 OR 0 =", 0, {0, 1}},
+        {"NOT 1 =", 0, {0, 1}},
+        {"1 AND 0 =", 0, {0, 1}}
     };
 }
 
@@ -384,10 +372,23 @@ int calculateCPUAttack()
 bool askQuiz(const string& prompt, const vector<Quiz>& quizzes) 
 {
     int idx = rand() % quizzes.size();
+    const Quiz& currentQuiz = quizzes[idx];
     
     cout << "\n💡 ";
     printColored(prompt, 14);
-    cout << ": " << quizzes[idx].question << " ";
+    cout << ": " << currentQuiz.question << " ";
+    
+    // Display options
+    cout << "(Options: ";
+    for (size_t i = 0; i < currentQuiz.options.size(); i++) 
+    {
+        cout << currentQuiz.options[i];
+        if (i < currentQuiz.options.size() - 1) 
+        {
+            cout << "/";
+        }
+    }
+    cout << ") ";
     
     int answer;
     if (!(cin >> answer)) 
@@ -397,7 +398,7 @@ bool askQuiz(const string& prompt, const vector<Quiz>& quizzes)
         return false;
     }
     
-    bool correct = (answer == quizzes[idx].answer);
+    bool correct = (answer == currentQuiz.answer);
     
     if (correct) 
     {
@@ -406,7 +407,7 @@ bool askQuiz(const string& prompt, const vector<Quiz>& quizzes)
     } 
     else 
     {
-        printColored("Wrong.\n", 12);
+        printColored("Wrong. The answer was " + to_string(currentQuiz.answer) + ".\n", 12);
         soundError();
     }
     
