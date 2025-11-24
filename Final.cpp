@@ -1,9 +1,9 @@
-#include <iostream>
-#include <vector>
-#include <cstdlib>
-#include <ctime>
-#include <limits>
-#include <windows.h>
+#include <iostream> // For console outpout and input
+#include <vector> // For using vectors
+#include <cstdlib> // For rand() and srand()
+#include <ctime> // For time() 
+#include <limits> // For numeric_limits = input safety 
+#include <windows.h> // For console color and sound
 
 using namespace std;
 
@@ -18,7 +18,7 @@ const int MAX_ROUNDS = 20;
 struct Quiz {
     string question;
     int answer;
-    vector<int> options;  // possible choices
+    vector<int> options; // possible choices
 };
 
 struct SkillCooldown 
@@ -107,22 +107,21 @@ struct SkillCooldown
 struct GameState 
 {
     vector<int> playerNodes;
-    vector<bool> nodeCooldown;
     SkillCooldown skillCooldowns;
     int playerEnergy;
     int playerHP;
     int cpuHP;
     int roundNum;
     int currentBoost;
+    bool playerQuit;
     
-    GameState() : playerNodes(NODE_COUNT, 0), nodeCooldown(NODE_COUNT, false),
+    GameState() : playerNodes(NODE_COUNT, 0),
                  playerEnergy(STARTING_ENERGY), playerHP(STARTING_HP), 
                  cpuHP(STARTING_HP), roundNum(1), currentBoost(0) {}
     
     void reset() 
     {
         playerNodes = vector<int>(NODE_COUNT, 0);
-        nodeCooldown = vector<bool>(NODE_COUNT, false);
         skillCooldowns = SkillCooldown();
         playerEnergy = STARTING_ENERGY;
         playerHP = STARTING_HP;
@@ -239,7 +238,7 @@ void printHealth(const string& name, int hp, int maxHp)
 void printRoundInfo(const GameState& state) 
 {
     cout << "\n--- Round " << state.roundNum << "/" << MAX_ROUNDS << " ---\n";
-    cout << "Rounds remaining: " << (MAX_ROUNDS - state.roundNum + 1) << "\n";
+    cout << "Rounds remaining: " << (MAX_ROUNDS - state.roundNum + 1) << "\n"; 
 }
 
 void printBoard(const GameState& state) 
@@ -265,10 +264,7 @@ void printBoard(const GameState& state)
             cout << " (+" << (i + 1) << " defense)";
         }
         
-        if (state.nodeCooldown[i]) 
-        {
-            printColored(" (Cooldown)", 14);
-        }
+        
         cout << "\n";
     }
 }
@@ -477,7 +473,7 @@ void executeBattle(GameState& state)
 void useSkill(GameState& state) 
 {
     cout << "\n";
-    printColored("🛡️  AVAILABLE SKILLS:\n", 13);
+    printColored("🛡️ AVAILABLE SKILLS:\n", 13);
     
     auto printSkill = [&](int num, const string& name, int cost, int cooldown, bool onCooldown, int roundsLeft) 
     {
@@ -659,11 +655,7 @@ bool processCommand(GameState& state, const string& command)
             return true;
         }
         
-        if (state.nodeCooldown[node]) 
-        {
-            printColored("Node " + to_string(node) + " is on cooldown!\n", 14);
-            return true;
-        }
+        
         
         val = (val == 1) ? 1 : 0;
         
@@ -706,14 +698,7 @@ bool processCommand(GameState& state, const string& command)
     {
         executeBattle(state);
         
-        // Set cooldown for used nodes and advance round
-        for (int i = 0; i < NODE_COUNT; i++) 
-        {
-            if (state.playerNodes[i] == 1) 
-            {
-                state.nodeCooldown[i] = true;
-            }
-        }
+        // Advance round (nodes have no cooldown)
         
         // Decrease skill cooldowns
         state.skillCooldowns.decreaseCooldowns();
@@ -809,7 +794,7 @@ bool determineWinner(const GameState& state)
 }
 
 // ==================== MAIN GAME LOOP ====================
-void playGame() 
+GameState playGame() 
 {
     GameState state;
     
@@ -820,6 +805,7 @@ void playGame()
         // Start of round setup
         state.playerEnergy = min(STARTING_ENERGY, state.playerEnergy + ENERGY_PER_ROUND);
         state.currentBoost = 0;
+        
         
         // Reset nodes to OFF but keep cooldown status
         for (int i = 0; i < NODE_COUNT; i++) 
@@ -865,14 +851,11 @@ void playGame()
         // If player quit, break out of the main game loop
         if (shouldQuit) 
         {
+            state.playerQuit = true;
             break;
         }
         
-        // Reset node cooldowns for next round
-        for (int i = 0; i < NODE_COUNT; i++) 
-        {
-            state.nodeCooldown[i] = false;
-        }
+        // Note: node cooldowns are managed as integer rounds and decremented at round start.
         
         // Check if we've reached the round limit
         if (state.roundNum > MAX_ROUNDS) 
@@ -880,6 +863,7 @@ void playGame()
             break;
         }
     }
+    return state;
 }
 
 // ==================== MAIN FUNCTION ====================
@@ -890,12 +874,16 @@ int main()
     
     while (playAgain) 
     {
-        playGame();
-        
-        // Only ask to play again if the game finished normally (not by quitting)
-        // We need to check if the player quit by examining the game state
-        // For now, we'll assume if we reach determineWinner, the game finished normally
-        playAgain = determineWinner(GameState());
+        GameState finalState = playGame();
+
+        if (finalState.playerQuit) 
+        {
+            // Player quit to main menu — do not show winner, just stop
+            playAgain = false;
+            break;
+        }
+
+        playAgain = determineWinner(finalState);
         
         if (playAgain) 
         {
